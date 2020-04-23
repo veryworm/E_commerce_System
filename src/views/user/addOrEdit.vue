@@ -1,18 +1,19 @@
 <template>
     <el-dialog
-    title="提示"
+    :title="title"
     :visible.sync="dialogvisible"
     width="40%"
     :before-close="handleClose"
+    @close="clearForm"
     >
     <div class="FormDiv">
-        <el-form :model="ruleForm" status-icon :rules="rules" ref="ruleForm" label-width="70px" class="demo-ruleForm">
+        <el-form :model="ruleForm" status-icon :rules="rules" ref="ruleForms" label-width="70px" class="demo-ruleForm">
             <el-form-item label="用户名" prop="username">
-                <el-input type="text" v-model="ruleForm.username" autocomplete="off"></el-input>
+                <el-input type="text" :disabled="isdisabled" v-model="ruleForm.username" autocomplete="off"></el-input>
             </el-form-item>
 
-            <el-form-item label="密码" prop="checkPass">
-                <el-input type="password" v-model="ruleForm.checkPass" autocomplete="off"></el-input>
+            <el-form-item v-if="title=='新增用户数据'" label="密码" prop="password">
+                <el-input type="password" v-model="ruleForm.password" autocomplete="off"></el-input>
             </el-form-item>
 
             <el-form-item
@@ -29,11 +30,6 @@
             <el-form-item label="手机号" prop="mobile">
                 <el-input v-model.number="ruleForm.mobile"></el-input>
             </el-form-item>
-
-            <el-form-item>
-                <el-button type="primary" @click="submitForm('ruleForm')">提交</el-button>
-                <el-button @click="resetForm('ruleForm')">重置</el-button>
-            </el-form-item>
         </el-form>
     </div>
     <span slot="footer" class="dialog-footer">
@@ -44,8 +40,19 @@
 </template>
 
 <script>
+import model from './model.js'
 export default {
     data(){
+        var checkMobile = ( rule, value, callback ) => {
+            if( !value ) {
+                return callback( new Error( '电话号不能为空' ) )
+            }
+            const regMobile = /^(0|86|17951)?(13[0-9]|15[012356789]|17[678]|18[0-9]|14[57])[0-9]{8}$/
+            if( regMobile.test( value ) ){
+                return callback()
+            } 
+            return callback( new Error( '请输入正确的电话号' ) )
+        }; 
         return {
             ruleForm:{
                 username:"",
@@ -54,17 +61,26 @@ export default {
                 mobile:""
             },
             rules:{
-                username:[
-                    {required:true, message:"请输入2-5为字母",trigger:'blur'},
-                    { min: 3, max: 5, message: '长度在 3 到 5 个字符', trigger: 'blur' }
+                username: [
+                    { required: true, message: '请输入用户名', trigger: 'blur' },
+                    {
+                        min: 3,
+                        max: 10,
+                        message: '用户名的长度在3~10个字符之间',
+                        trigger: 'blur'
+                    }
                 ],
-                checkPass:[
-                    {required:true, message:"请输入2-5为字母",trigger:'blur'},
-                    { min: 5, max: 9, message: '长度在 5 到 9 个字符', trigger: 'blur' }
+                password: [
+                    { required: true, message: '请输入密码', trigger: 'blur' },
+                    {
+                        min: 6,
+                        max: 15,
+                        message: '用户名的长度在6~15个字符之间',
+                        trigger: 'blur'
+                    }
                 ],
                 mobile:[
-                    { required: true, message: '手机号不能为空'},
-                    { type: 'number', message: '手机号必须为数字值'}
+                    { validator: checkMobile, trigger:'blur' }
                 ]
             }
         }
@@ -73,6 +89,22 @@ export default {
         dialogvisible:{
             type:Boolean,
             default:(()=>{return false})
+        },
+        title:{
+            type:String
+        },
+        currentObj:{
+            type:Object
+        }
+    },
+    watch:{
+        dialogvisible:{
+            handler:"watchCurrentObj"
+        }
+    },
+    computed:{
+        isdisabled(){
+            return this.title == '新增用户数据' ? false:true
         }
     },
     methods:{
@@ -81,10 +113,51 @@ export default {
         },
         // 提交表单
         submitForm(){
-
+            if(this.title == '新增用户数据'){
+                this.$refs.ruleForms.validate( async valid=>{
+                    if(!valid)return
+                    this.addHandler()
+                })
+            }else{
+                this.$refs.ruleForms.validate( async valid=>{
+                    if(!valid)return
+                    this.editHandler()
+                })
+            }
         },
-        resetForm(){
-            this.$refs.ruleForm.resetField()
+        // 新增
+        async addHandler(){
+            const {data:res} = await this.$http.post('users',this.ruleForm )
+            if(res.meta.status!==201){
+                this.$message.error('添加用户失败')
+            }
+            this.$message.success('添加用户成功')
+            this.$emit('closeDrawer')
+        },
+        // 修改 
+        async editHandler(){
+            const {data:res} = await this.$http.put('users/'+this.ruleForm.id,{
+                email:this.ruleForm.email,
+                mobile:this.ruleForm.mobile
+            })
+            if(res.meta.status!==200){
+                this.$message.error('修改用户失败')
+            }
+            this.$message.success('修改用户成功')
+            this.$emit('closeDrawer')
+        },
+        // 监听是新增还是修改的currenObj
+        watchCurrentObj(val){
+            if(val){
+                if(this.title=="新增用户数据"){
+                    this.ruleForm = {...model.ruleForm}
+                }else{
+                    Object.assign(this.ruleForm,this.currentObj)
+                }
+            }
+        },
+        clearForm(){
+            this.$refs.ruleForms.resetFields()
         }
     }
 }

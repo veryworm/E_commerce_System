@@ -19,7 +19,7 @@
                     <span>{{ item.authName }}</span>
                 </template>
             <!-- 二级菜单 -->
-                <el-menu-item v-for="menItem in item.children" :key="menItem.id" :index=" '/'+item.path " @click="getItemPath( '/'+item.path )">
+                <el-menu-item v-for="menItem in item.children" :key="menItem.id" :index=" '/'+menItem.path " @click="getItemPath( '/'+menItem.path )">
                     <template slot="title">
                         <i class="el-icon-menu"></i>
                         <span>{{ menItem.authName }}</span>

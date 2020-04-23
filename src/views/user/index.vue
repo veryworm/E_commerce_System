@@ -68,7 +68,7 @@
                     width="180px"
                     >
                     <template slot-scope="scope">
-                        <el-button @click="editHander(scope.row)" size="mini" type="primary" icon="el-icon-edit"></el-button>
+                        <el-button @click="editHander(scope.row.id)" size="mini" type="primary" icon="el-icon-edit"></el-button>
                         <el-button @click="deleteHandler(scope.row.id)" size="mini" type="danger" icon="el-icon-delete"></el-button>
                         <el-button @click="distribute(scope.row)" size="mini" type="warning" icon="el-icon-setting"></el-button>
                     </template>
@@ -88,17 +88,23 @@
             </el-pagination>
 
             <!-- 新增修改弹框 -->
-            <AddOrEdit :dialogvisible.sync="dialogvisible" @closeDrawer="closeDrawer"></AddOrEdit>
+            <AddOrEdit :dialogvisible.sync="dialogvisible" :currentObj="currentObj" :title="title" @closeDrawer="closeDrawer"></AddOrEdit>
 
+            <!-- 分配权限弹框 -->
+            <distributeDialog :dialogvisible.sync="rightVisible" :currentUser="currentUser" @closeDrawer="closeDrawer"></distributeDialog>
         </el-card>
     </div>
 </template>
 
 <script>
 import AddOrEdit from './addOrEdit.vue'
+import distributeDialog from './distributeUserRole'
+import model from './model.js'
+
 export default {
     components:{
-        AddOrEdit
+        AddOrEdit,
+        distributeDialog
     },
     data(){
         return {
@@ -111,7 +117,11 @@ export default {
             },
             gridList:[],
             total:null,
-            dialogvisible:false
+            dialogvisible:false,
+            rightVisible:false,
+            currentObj:{},
+            currentUser:{},
+            title:''
         }
     },
     created(){
@@ -140,25 +150,48 @@ export default {
             this.searchBody()
         },
         // 编辑打开模态框
-        editHander(row){
-            // console.log(row)
+        async editHander(id){
+            this.title = '修改用户数据'
+            const{data:res} = await this.$http.get(`users/${id}`)
+            if(res.meta.status !==200)return this.$message.error('更新用户状态失败')
+            this.currentObj = res.data
             this.dialogvisible = true
         },
         // 添加打开模态框
         addHandler(){
+            this.title = '新增用户数据'
             this.dialogvisible = true
         },
         // 子组件发送关闭模态框
         closeDrawer(val){
             this.dialogvisible = val
+            this.rightVisible = false
+            this.searchBody()
         },
         // 删除
-        deleteHandler(id){
-            console.log(id)
+        async deleteHandler(id){
+            this.$confirm('此操作将永久删除该文件, 是否继续?', '提示', {
+                confirmButtonText: '确定',
+                cancelButtonText: '取消',
+                type: 'warning'
+            }).then(() => {
+                this.deleteSuccess()
+            })  
+            .catch(() => {
+                this.$message({
+                    type: 'info',
+                    message: '已取消删除'
+                });          
+            });
+            // const {data:res} = await this.$http.delete(`users/${id}`)
+            // if(res.meta.status!==200)return this.$message.error('删除失败')
+            // this.$message.success('删除成功')
+            // this.refresh()
         },
         // 分配
-        async distribute(row){
-           
+        async distribute(currentUser){
+            this.currentUser = currentUser
+            this.rightVisible = true
         },
         // 选择当前页要呈现多少条数据
         handleSizeChange(val){
@@ -169,6 +202,20 @@ export default {
         handleCurrentChange(val){
             this.queryInfo.pagenum = val
             this.searchBody()
+        },
+        refresh(){
+            Object.assign(this.queryInfo,model.queryInfo)
+            this.searchBody()
+        },
+        async deleteSuccess(){
+            const {data:res} = await this.$http.delete(`users/${id}`)
+            if(res.meta.status!==200)return this.$message.error('删除失败')
+            this.$message.success('删除成功')
+            this.refresh()
+            this.$message({
+                type: 'success',
+                message: '删除成功!'
+            });
         }
 
     }
